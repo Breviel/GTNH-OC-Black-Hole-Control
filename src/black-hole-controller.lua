@@ -494,7 +494,21 @@ function blackHoleController:new(
   ---@param requestCount integer
   ---@private
   function obj:requestFakeRecipe(requestCount)
-    local recipe = obj.meInterfaceProxy.getCraftables({label = self.fakeRecipeName})[1]
+    local recipe = nil
+    local attempts = 0
+
+    while recipe == nil and attempts < 10 do
+      recipe = obj.meInterfaceProxy.getCraftables({label = self.fakeRecipeName})[1]
+      if recipe == nil then
+        os.sleep(0.5)
+        attempts = attempts + 1
+      end
+    end
+
+    if recipe == nil then
+      return false
+    end
+
     local craft = recipe.request(requestCount)
 
     while craft.isComputing() == true do
