@@ -311,7 +311,7 @@ function blackHoleController:new(
     self.meInterfaceProxy = componentDiscoverLib.discoverProxy(
       meInterfaceAddress,
       "ME interface",
-      "me_interface")
+      "fluid_interface")
 
     self.ioPortTransposer = componentDiscoverLib.discoverProxy(
       ioPortTransposerAddress,
@@ -456,7 +456,7 @@ function blackHoleController:new(
   ---@return integer
   ---@private
   function obj:calculateSpaceTimeCount(cycles, startCycle)
-    startCycle = startCycle ~= 0 and startCycle or 1
+    startCycle = (startCycle ~= nil and startCycle ~= 0) and startCycle or 1
 
     local count = 0
 
