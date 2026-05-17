@@ -342,9 +342,10 @@ function blackHoleController:new(
     self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:molten.spacetime}")
   end
 
-  ---Set the fake paper as input slot 1 of the pattern, leaving the ae2fc output untouched
+  ---Set fake paper as output slot 1 and item input slot 1, leaving fluid input slot 2 for encodePattern
   ---@private
   function obj:clearPattern()
+    self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
     self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 1, 1)
   end
 
