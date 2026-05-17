@@ -359,8 +359,8 @@ function blackHoleController:new(
       self.meInterfaceProxy.clearInterfacePatternInput(1, key)
     end
 
-    self.meInterfaceProxy.storeInterfacePatternOutput(1, 1, self.database.address, 1)
-    self.meInterfaceProxy.storeInterfacePatternInput(1, 1, self.database.address, 1)
+    self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
+    self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 1, 1)
   end
 
   ---Check if crafting inputs has items for craft
@@ -485,7 +485,7 @@ function blackHoleController:new(
       event.push("log_debug", "Too much: "..numWithCommas((spaceTimeCount * requests) - a).." / "..numWithCommas(a).." / "..numWithCommas(spaceTimeCount * requests));
     end
 
-    self.meInterfaceProxy.storeInterfacePatternInput(1, 2, self.database.address, 2)
+    self.meInterfaceProxy.setInterfacePatternInput(1, 2, self.database.address, 2, spaceTimeCount)
 
     return requests
   end
