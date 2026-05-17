@@ -342,23 +342,9 @@ function blackHoleController:new(
     self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:molten.spacetime}")
   end
 
-  ---Clear inputs and outputs of the fake pattern
+  ---Set output and input of the fake pattern directly without reading first
   ---@private
   function obj:clearPattern()
-    local pattern = self.meInterfaceProxy.getInterfacePattern(1)
-
-    if pattern == nil then
-      error("No pattern in Interface")
-    end
-
-    for key, _ in pairs(pattern.outputs) do
-      self.meInterfaceProxy.clearInterfacePatternOutput(1, key)
-    end
-
-    for key, _ in pairs(pattern.inputs) do
-      self.meInterfaceProxy.clearInterfacePatternInput(1, key)
-    end
-
     self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
     self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 1, 1)
   end
@@ -553,7 +539,7 @@ function blackHoleController:new(
     self.ioPortTransposer.transferItem(self.meIoPortSide, self.meDriveSide, 1)
   end
 
-  ---Check if craft of the fake pattern is failed
+  ---Check if craft of the fake pattern is active on a CPU
   ---@private
   function obj:hasFakeRecipe()
     local cpus = self.meInterfaceProxy.getCpus()
