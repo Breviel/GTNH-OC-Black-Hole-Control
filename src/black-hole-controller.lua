@@ -341,8 +341,7 @@ function blackHoleController:new(
   ---@private
   function obj:fillDatabase()
     self.database.set(1, "minecraft:paper", 0, "{display:{Name:\""..self.fakeRecipeName.."\"}}")
-    -- Slot 2 is a placeholder; the actual Amount is written dynamically by encodePattern
-    self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:{FluidName:\"molten.spacetime\",Amount:1}}")
+    self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:molten.spacetime}")
   end
 
   ---Set the pattern output to the fake recipe paper.
@@ -457,9 +456,9 @@ function blackHoleController:new(
     return math.ceil(count)
   end
 
-  ---Encode fake pattern: writes the required spacetime amount into the fluid drop NBT
-  ---in database slot 2, then sets the pattern input to 1 item of that fluid drop.
-  ---Using NBT amount instead of stack size avoids the 64-item stack cap.
+  ---Encode fake pattern: updates input slot 1 with the required spacetime amount.
+  ---Output (fake recipe paper) is fixed and set once by clearPattern.
+  ---Fluid patterns are not limited by stack size so the amount is passed directly.
   ---@param spaceTimeCount number mB
   ---@return integer requests
   ---@private
@@ -477,9 +476,7 @@ function blackHoleController:new(
       event.push("log_debug", "Too much: "..numWithCommas((spaceTimeCount * requests) - a).." / "..numWithCommas(a).." / "..numWithCommas(spaceTimeCount * requests));
     end
 
-    -- Write the exact fluid amount into the fluid drop NBT to avoid the 64 stack cap
-    self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:{FluidName:\"molten.spacetime\",Amount:"..spaceTimeCount.."}}")
-    self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 2, 1)
+    self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 2, spaceTimeCount)
 
     return requests
   end
