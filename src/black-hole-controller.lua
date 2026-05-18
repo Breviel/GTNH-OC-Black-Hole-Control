@@ -74,7 +74,7 @@ function blackHoleController:new(
 
   obj.saveRecipeMode = saveRecipeMode
 
-  obj.maxTimer = 85
+  obj.maxTimer = 65
   obj.maxCycleTimer = 25
   obj.maxCyclesCount = maxCyclesCount
 
@@ -141,7 +141,10 @@ function blackHoleController:new(
 
     self.stateMachine.states.waitFreeCraft = self.stateMachine:createState("Wait Free Craft")
     self.stateMachine.states.waitFreeCraft.update = function()
-      if self.stateMachine.data.currentTimer >= self.maxTimer then
+      local timerReached = self.stateMachine.data.currentTimer >= self.maxTimer
+      local stabilityLow = self:getStabilityTimeRemained() <= 20
+
+      if timerReached or stabilityLow then
         if self.maxCyclesCount ~= 0 and (self:hasItems() == true or self:getCraftTimeRemained() ~= 0) then
           self.stateMachine:setState(self.stateMachine.states.addSpaceTime)
         else
@@ -181,7 +184,7 @@ function blackHoleController:new(
     self.stateMachine.states.waitSpaceTime.update = function ()
       if self.controllerProxy.getWorkMaxProgress() == 0 and self:hasItems() == false then
           self.stateMachine:setState(self.stateMachine.states.collapseBlackHole)
-      elseif self.stateMachine.data.currentCycleTimer >= self.maxCycleTimer or self.stateMachine.data.currentCycle == self.maxCyclesCount then
+      elseif self.stateMachine.data.currentCycleTimer >= self.maxCycleTimer or self.stateMachine.data.currentCycle == self.maxCyclesCount or self:getStabilityTimeRemained() <= 20 then
         if self.stateMachine.data.currentCycle < self.maxCyclesCount then
           self.stateMachine:setState(self.stateMachine.states.addSpaceTime)
         elseif self.saveRecipeMode == true and self:getCraftTimeRemained() > self:getStabilityTimeRemained() then
@@ -422,7 +425,7 @@ function blackHoleController:new(
   ---@private
   ---@return integer
   function obj:getStabilityTimeRemained()
-    return (95 + 30 * self.maxCyclesCount) - self.stateMachine.data.currentTimer
+    return math.max(0, (95 + 30 * self.maxCyclesCount) - self.stateMachine.data.currentTimer)
   end
 
   ---Calculates space time consumption per cycle
