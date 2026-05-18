@@ -344,11 +344,11 @@ function blackHoleController:new(
     self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:molten.spacetime}")
   end
 
-  ---Set the pattern output to the fake recipe paper.
+  ---Clear inputs and outputs of the fake pattern, setting a fixed output of 1 fake recipe paper.
   ---The input (spacetime amount) is set dynamically by encodePattern before each request.
   ---@private
   function obj:clearPattern()
-    self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
+    self.meInterfaceProxy.setInterfacePatternOutput(1, self.database.address, 1, 1, 1)
   end
 
   ---Check if crafting inputs has items for craft
@@ -456,9 +456,8 @@ function blackHoleController:new(
     return math.ceil(count)
   end
 
-  ---Encode fake pattern: updates input slot 1 with the required spacetime amount.
-  ---Output (fake recipe paper) is fixed and set once by clearPattern.
-  ---Fluid patterns are not limited by stack size so the amount is passed directly.
+  ---Encode fake pattern: updates the fluid input amount in the pattern.
+  ---Signature: setInterfacePatternInput(patternSlot, dbAddress, dbSlot, fluidAmount, itemCount)
   ---@param spaceTimeCount number mB
   ---@return integer requests
   ---@private
@@ -476,7 +475,7 @@ function blackHoleController:new(
       event.push("log_debug", "Too much: "..numWithCommas((spaceTimeCount * requests) - a).." / "..numWithCommas(a).." / "..numWithCommas(spaceTimeCount * requests));
     end
 
-    self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 2, spaceTimeCount)
+    self.meInterfaceProxy.setInterfacePatternInput(1, self.database.address, 2, spaceTimeCount, 1)
 
     return requests
   end
