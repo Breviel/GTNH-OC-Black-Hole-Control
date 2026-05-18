@@ -118,10 +118,7 @@ function blackHoleController:new(
               return
             elseif self.stateMachine.data.notifyNotEnoughSpaceTime == false then
               self.stateMachine.data.notifyNotEnoughSpaceTime = true
-              -- Build per-cycle breakdown: e.g. "30+60+120+240+480 = 930 L"
-              local breakdown = self:buildCycleBreakdown(self.maxCyclesCount)
-              event.push("log_warning", "Not enough Space Time for craft. Need: "
-                ..numWithCommas(self.stateMachine.data.spaceTimePerCraftCount).." L ("..breakdown..")")
+              event.push("log_warning", "Not enough Space Time for craft. Need: "..numWithCommas(self.stateMachine.data.spaceTimePerCraftCount))
             end
 
             os.sleep(3)
@@ -165,12 +162,6 @@ function blackHoleController:new(
 
       local spacetimeCount = self:calculateSpaceTimeByCycleCount(self.stateMachine.data.currentCycle)
       self.stateMachine.data.requestCount = self:encodePattern(spacetimeCount)
-
-      -- Stability deadline for this cycle: 100 + 30*currentCycle seconds from black hole open
-      local deadline = 100 + 30 * self.stateMachine.data.currentCycle
-      event.push("log_info", "Cycle "..self.stateMachine.data.currentCycle
-        ..": requesting "..numWithCommas(spacetimeCount).." L"
-        .." (deadline "..deadline.."s, timer "..self.stateMachine.data.currentTimer.."s)")
     end
     self.stateMachine.states.addSpaceTime.update = function()
       if self:requestFakeRecipe(self.stateMachine.data.requestCount) == true or self:hasFakeRecipe() == true then
@@ -216,7 +207,7 @@ function blackHoleController:new(
 
       needSpaceTime = needSpaceTime + self:calculateSpaceTimeByCycleCount(needCycles + 1, needTime)
 
-      event.push("log_info", "[Save mode] Need:"..secondsRemained.."s Added spacetime: "..numWithCommas(needSpaceTime).." L");
+      event.push("log_info", "[Save mode] Need:"..secondsRemained.." Added spacetime: "..numWithCommas(needSpaceTime));
 
       self.stateMachine.data.requestCount = self:encodePattern(needSpaceTime)
     end
@@ -275,23 +266,6 @@ function blackHoleController:new(
 
     if self.stateMachine.data.cycleStartTime ~= nil then
       self.stateMachine.data.currentCycleTimer = self:getCurrentTimerTime(self.stateMachine.data.cycleStartTime)
-    end
-
-    -- Safety: wiki formula — stability holds until (100 + 30*N) seconds where N = cycles paid so far.
-    -- Emergency collapse 5s before deadline to give the collapser time to be inserted.
-    local cs = self.stateMachine.currentState
-    local isActive = self.stateMachine.data.startTime ~= nil
-      and cs ~= self.stateMachine.states.collapseBlackHole
-      and cs ~= self.stateMachine.states.waitEnd
-      and cs ~= self.stateMachine.states.error
-      and cs ~= self.stateMachine.states.idle
-    if isActive then
-      local deadline = 100 + 30 * self.stateMachine.data.currentCycle
-      if self.stateMachine.data.currentTimer >= deadline - 5 then
-        event.push("log_warning", "Emergency collapse: stability deadline "..deadline.."s, timer "..self.stateMachine.data.currentTimer.."s")
-        self.stateMachine.data.errorMessage = "Stability deadline reached at cycle "..self.stateMachine.data.currentCycle.." ("..deadline.."s)"
-        self.stateMachine:setState(self.stateMachine.states.error)
-      end
     end
 
     self.stateMachine:update()
@@ -368,24 +342,10 @@ function blackHoleController:new(
     self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:molten.spacetime}")
   end
 
-  ---Set fake paper as output only. Clears all existing inputs/outputs first.
-  ---encodePattern sets input slot 1 to the required spacetime amount before each request.
+  ---Set the pattern output to the fake recipe paper.
+  ---The input (spacetime amount) is set dynamically by encodePattern before each request.
   ---@private
   function obj:clearPattern()
-    local pattern = self.meInterfaceProxy.getInterfacePattern(1)
-
-    if pattern == nil then
-      error("No pattern in Interface")
-    end
-
-    for key, _ in pairs(pattern.inputs) do
-      self.meInterfaceProxy.clearInterfacePatternInput(1, key)
-    end
-
-    for key, _ in pairs(pattern.outputs) do
-      self.meInterfaceProxy.clearInterfacePatternOutput(1, key)
-    end
-
     self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
   end
 
@@ -426,7 +386,7 @@ function blackHoleController:new(
   end
 
   ---Check if ae has enough space time for craft
-  ---@param spaceTimeCount integer L (= mB in GTNH)
+  ---@param spaceTimeCount integer
   ---@return boolean
   function obj:hasEnoughSpacetime(spaceTimeCount)
     local fluids = obj.meInterfaceProxy.getFluidsInNetwork()
@@ -465,13 +425,10 @@ function blackHoleController:new(
     return (95 + 30 * self.maxCyclesCount) - self.stateMachine.data.currentTimer
   end
 
-  ---Calculates spacetime for a single cycle.
-  ---Wiki formula: Total(L) = sum n=101 to s of 2^floor((n-101)/30)
-  ---Per cycle N (1-based): rate = 2^(N-1) L/s for `time` seconds.
-  ---1L = 1mB in GTNH.
-  ---@param cycle integer 1-based cycle number
-  ---@param time? integer seconds in this cycle (default 30)
-  ---@return integer L
+  ---Calculates space time consumption per cycle
+  ---@param cycle integer
+  ---@param time? integer
+  ---@return integer
   ---@private
   function obj:calculateSpaceTimeByCycleCount(cycle, time)
     time = time or 30
@@ -479,10 +436,10 @@ function blackHoleController:new(
     return math.ceil(time * 2 ^ (cycle - 1))
   end
 
-  ---Calculates total spacetime for a range of full 30s cycles.
-  ---@param cycles integer end cycle (inclusive)
-  ---@param startCycle? integer start cycle (inclusive, default 1)
-  ---@return integer L
+  ---Calculates space time consumption for cycles
+  ---@param cycles integer
+  ---@param startCycle? integer
+  ---@return integer
   ---@private
   function obj:calculateSpaceTimeCount(cycles, startCycle)
     startCycle = (startCycle ~= nil and startCycle ~= 0) and startCycle or 1
@@ -496,30 +453,10 @@ function blackHoleController:new(
     return math.ceil(count)
   end
 
-  ---Build a human-readable per-cycle breakdown string, e.g. "30+60+120 = 210 L"
-  ---@param cycles integer
-  ---@param startCycle? integer
-  ---@return string
-  ---@private
-  function obj:buildCycleBreakdown(cycles, startCycle)
-    startCycle = (startCycle ~= nil and startCycle ~= 0) and startCycle or 1
-
-    local parts = {}
-    local total = 0
-
-    for i = startCycle, cycles, 1 do
-      local v = self:calculateSpaceTimeByCycleCount(i)
-      total = total + v
-      parts[#parts + 1] = numWithCommas(v)
-    end
-
-    return table.concat(parts, "+").." = "..numWithCommas(total).." L"
-  end
-
-  ---Encode fake pattern: sets input slot 1 to the required spacetime amount.
-  ---Splits into multiple requests if amount exceeds AE2's 2,000,000,000 stack limit.
-  ---@param spaceTimeCount integer L
-  ---@return integer number of craft requests needed
+  ---Encode fake pattern: updates input slot 2 with the required spacetime amount.
+  ---Output (fake recipe paper) is fixed and set once by clearPattern.
+  ---@param spaceTimeCount number
+  ---@return integer
   ---@private
   function obj:encodePattern(spaceTimeCount)
     local requests = 1
@@ -535,8 +472,7 @@ function blackHoleController:new(
       event.push("log_debug", "Too much: "..numWithCommas((spaceTimeCount * requests) - a).." / "..numWithCommas(a).." / "..numWithCommas(spaceTimeCount * requests));
     end
 
-    -- Input slot 1 = spacetime fluid (database slot 2 = ae2fc:fluid_drop {Fluid:molten.spacetime})
-    self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 2, spaceTimeCount)
+    self.meInterfaceProxy.setInterfacePatternInput(1, 2, self.database.address, 2, spaceTimeCount)
 
     return requests
   end
@@ -569,7 +505,7 @@ function blackHoleController:new(
     return craft.hasFailed() == false
   end
 
-  ---Try cancel craft of the fake pattern
+  ---Try cancel craft of the faker pattern
   ---@private
   function obj:tryCancelFakeRecipe()
     local cpus = self.meInterfaceProxy.getCpus()
@@ -604,7 +540,7 @@ function blackHoleController:new(
     self.ioPortTransposer.transferItem(self.meIoPortSide, self.meDriveSide, 1)
   end
 
-  ---Check if the fake pattern craft is active on any CPU
+  ---Check if craft of the fake pattern is active on a CPU
   ---@private
   function obj:hasFakeRecipe()
     local cpus = self.meInterfaceProxy.getCpus()
