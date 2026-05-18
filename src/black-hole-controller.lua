@@ -528,16 +528,19 @@ function blackHoleController:new(
     return true
   end
 
-  ---Remove Excess Spacetime from black hole
+  ---Remove Excess Spacetime from black hole.
+  ---Only waits for the IO port item if a transfer was actually made.
   ---@private
   function obj:removeExcessSpacetime()
-    self.ioPortTransposer.transferItem(self.meDriveSide, self.meIoPortSide, 1)
+    local transferred = self.ioPortTransposer.transferItem(self.meDriveSide, self.meIoPortSide, 1)
 
-    while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 7) ~= 1 do
-      os.sleep(0.1)
+    if transferred ~= nil and transferred > 0 then
+      while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 7) ~= 1 do
+        os.sleep(0.1)
+      end
+
+      self.ioPortTransposer.transferItem(self.meIoPortSide, self.meDriveSide, 1)
     end
-
-    self.ioPortTransposer.transferItem(self.meIoPortSide, self.meDriveSide, 1)
   end
 
   ---Check if craft of the fake pattern is active on a CPU
