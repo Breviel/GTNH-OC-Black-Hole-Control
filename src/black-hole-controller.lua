@@ -270,24 +270,6 @@ function blackHoleController:new(
       self.stateMachine.data.currentCycleTimer = self:getCurrentTimerTime(self.stateMachine.data.cycleStartTime)
     end
 
-    -- Safety: if approaching the stability deadline for the current cycle, emergency collapse.
-    -- Wiki formula: stability holds until 100 + 30*N seconds (where N = cycles of spacetime paid so far).
-    -- We trigger 5s before that deadline to allow the collapser to be inserted in time.
-    local cs = self.stateMachine.currentState
-    local isActive = self.stateMachine.data.startTime ~= nil
-      and cs ~= self.stateMachine.states.collapseBlackHole
-      and cs ~= self.stateMachine.states.waitEnd
-      and cs ~= self.stateMachine.states.error
-      and cs ~= self.stateMachine.states.idle
-    if isActive then
-      local deadline = 100 + 30 * self.stateMachine.data.currentCycle
-      if self.stateMachine.data.currentTimer >= deadline - 5 then
-        event.push("log_warning", "Emergency collapse: stability deadline "..deadline.."s, timer "..self.stateMachine.data.currentTimer.."s")
-        self.stateMachine.data.errorMessage = "Stability deadline reached at cycle "..self.stateMachine.data.currentCycle.." ("..deadline.."s)"
-        self.stateMachine:setState(self.stateMachine.states.error)
-      end
-    end
-
     self.stateMachine:update()
   end
 
@@ -550,16 +532,25 @@ function blackHoleController:new(
   end
 
   ---Remove Excess Spacetime from black hole.
-  ---Only waits for the IO port item if a transfer was actually made.
+  ---First recovers any cell stuck in the IO port back to the drive, then
+  ---exports the cell from the drive to the IO port to trigger an export/import
+  ---cycle, and finally moves it back to the drive so AE2 can see the network.
   ---@private
   function obj:removeExcessSpacetime()
+    -- Step 1: recover any cell that may be stuck in the IO port back to the drive
+    self.ioPortTransposer.transferItem(self.meIoPortSide, self.meDriveSide, 1)
+    os.sleep(0.5)
+
+    -- Step 2: move cell from drive to IO port to trigger export
     local transferred = self.ioPortTransposer.transferItem(self.meDriveSide, self.meIoPortSide, 1)
 
     if transferred ~= nil and transferred > 0 then
+      -- Step 3: wait for the IO port to finish processing (slot 7 = export done indicator)
       while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 7) ~= 1 do
         os.sleep(0.1)
       end
 
+      -- Step 4: move cell back to drive so AE2 network can access the spacetime
       self.ioPortTransposer.transferItem(self.meIoPortSide, self.meDriveSide, 1)
     end
   end
