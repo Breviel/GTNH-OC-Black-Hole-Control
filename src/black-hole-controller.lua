@@ -118,7 +118,10 @@ function blackHoleController:new(
               return
             elseif self.stateMachine.data.notifyNotEnoughSpaceTime == false then
               self.stateMachine.data.notifyNotEnoughSpaceTime = true
-              event.push("log_warning", "Not enough Space Time for craft. Need: "..numWithCommas(self.stateMachine.data.spaceTimePerCraftCount).." mB")
+              -- Build per-cycle breakdown: e.g. "30+60+120+240+480 = 930 L"
+              local breakdown = self:buildCycleBreakdown(self.maxCyclesCount)
+              event.push("log_warning", "Not enough Space Time for craft. Need: "
+                ..numWithCommas(self.stateMachine.data.spaceTimePerCraftCount).." L ("..breakdown..")")
             end
 
             os.sleep(3)
@@ -163,7 +166,11 @@ function blackHoleController:new(
       local spacetimeCount = self:calculateSpaceTimeByCycleCount(self.stateMachine.data.currentCycle)
       self.stateMachine.data.requestCount = self:encodePattern(spacetimeCount)
 
-      event.push("log_info", "Cycle "..self.stateMachine.data.currentCycle.." spacetime: "..numWithCommas(spacetimeCount).." mB")
+      -- Stability deadline for this cycle: 100 + 30*currentCycle seconds from black hole open
+      local deadline = 100 + 30 * self.stateMachine.data.currentCycle
+      event.push("log_info", "Cycle "..self.stateMachine.data.currentCycle
+        ..": requesting "..numWithCommas(spacetimeCount).." L"
+        .." (deadline "..deadline.."s, timer "..self.stateMachine.data.currentTimer.."s)")
     end
     self.stateMachine.states.addSpaceTime.update = function()
       if self:requestFakeRecipe(self.stateMachine.data.requestCount) == true or self:hasFakeRecipe() == true then
@@ -209,7 +216,7 @@ function blackHoleController:new(
 
       needSpaceTime = needSpaceTime + self:calculateSpaceTimeByCycleCount(needCycles + 1, needTime)
 
-      event.push("log_info", "[Save mode] Need:"..secondsRemained.."s Added spacetime: "..numWithCommas(needSpaceTime).." mB");
+      event.push("log_info", "[Save mode] Need:"..secondsRemained.."s Added spacetime: "..numWithCommas(needSpaceTime).." L");
 
       self.stateMachine.data.requestCount = self:encodePattern(needSpaceTime)
     end
@@ -270,9 +277,8 @@ function blackHoleController:new(
       self.stateMachine.data.currentCycleTimer = self:getCurrentTimerTime(self.stateMachine.data.cycleStartTime)
     end
 
-    -- Safety: if approaching the stability deadline for the current cycle, emergency collapse.
-    -- Wiki formula: stability holds until 100 + 30*N seconds (where N = cycles of spacetime paid so far).
-    -- We trigger 5s before that deadline to allow the collapser to be inserted in time.
+    -- Safety: wiki formula — stability holds until (100 + 30*N) seconds where N = cycles paid so far.
+    -- Emergency collapse 5s before deadline to give the collapser time to be inserted.
     local cs = self.stateMachine.currentState
     local isActive = self.stateMachine.data.startTime ~= nil
       and cs ~= self.stateMachine.states.collapseBlackHole
@@ -362,8 +368,8 @@ function blackHoleController:new(
     self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:molten.spacetime}")
   end
 
-  ---Set fake paper as output only. Clears any leftover inputs from previous runs.
-  ---encodePattern will set input slot 1 to the required spacetime amount before each request.
+  ---Set fake paper as output only. Clears all existing inputs/outputs first.
+  ---encodePattern sets input slot 1 to the required spacetime amount before each request.
   ---@private
   function obj:clearPattern()
     local pattern = self.meInterfaceProxy.getInterfacePattern(1)
@@ -420,7 +426,7 @@ function blackHoleController:new(
   end
 
   ---Check if ae has enough space time for craft
-  ---@param spaceTimeCount integer mB
+  ---@param spaceTimeCount integer L (= mB in GTNH)
   ---@return boolean
   function obj:hasEnoughSpacetime(spaceTimeCount)
     local fluids = obj.meInterfaceProxy.getFluidsInNetwork()
@@ -459,22 +465,24 @@ function blackHoleController:new(
     return (95 + 30 * self.maxCyclesCount) - self.stateMachine.data.currentTimer
   end
 
-  ---Calculates spacetime consumption for a single cycle in mB.
-  ---Wiki formula: cycle N consumes 2^(N-1) L/s for `time` seconds = time * 1000 * 2^(N-1) mB.
+  ---Calculates spacetime for a single cycle.
+  ---Wiki formula: Total(L) = sum n=101 to s of 2^floor((n-101)/30)
+  ---Per cycle N (1-based): rate = 2^(N-1) L/s for `time` seconds.
+  ---1L = 1mB in GTNH.
   ---@param cycle integer 1-based cycle number
-  ---@param time? integer seconds (default 30)
-  ---@return integer mB
+  ---@param time? integer seconds in this cycle (default 30)
+  ---@return integer L
   ---@private
   function obj:calculateSpaceTimeByCycleCount(cycle, time)
     time = time or 30
 
-    return math.ceil(time * 1000 * 2 ^ (cycle - 1))
+    return math.ceil(time * 2 ^ (cycle - 1))
   end
 
-  ---Calculates total spacetime consumption for a range of cycles in mB.
+  ---Calculates total spacetime for a range of full 30s cycles.
   ---@param cycles integer end cycle (inclusive)
   ---@param startCycle? integer start cycle (inclusive, default 1)
-  ---@return integer mB
+  ---@return integer L
   ---@private
   function obj:calculateSpaceTimeCount(cycles, startCycle)
     startCycle = (startCycle ~= nil and startCycle ~= 0) and startCycle or 1
@@ -488,9 +496,29 @@ function blackHoleController:new(
     return math.ceil(count)
   end
 
-  ---Encode fake pattern: sets input slot 1 to the required spacetime amount (mB).
-  ---Splits into multiple requests if amount exceeds AE2's 2,000,000,000 mB item stack limit.
-  ---@param spaceTimeCount integer mB
+  ---Build a human-readable per-cycle breakdown string, e.g. "30+60+120 = 210 L"
+  ---@param cycles integer
+  ---@param startCycle? integer
+  ---@return string
+  ---@private
+  function obj:buildCycleBreakdown(cycles, startCycle)
+    startCycle = (startCycle ~= nil and startCycle ~= 0) and startCycle or 1
+
+    local parts = {}
+    local total = 0
+
+    for i = startCycle, cycles, 1 do
+      local v = self:calculateSpaceTimeByCycleCount(i)
+      total = total + v
+      parts[#parts + 1] = numWithCommas(v)
+    end
+
+    return table.concat(parts, "+").." = "..numWithCommas(total).." L"
+  end
+
+  ---Encode fake pattern: sets input slot 1 to the required spacetime amount.
+  ---Splits into multiple requests if amount exceeds AE2's 2,000,000,000 stack limit.
+  ---@param spaceTimeCount integer L
   ---@return integer number of craft requests needed
   ---@private
   function obj:encodePattern(spaceTimeCount)
@@ -507,7 +535,7 @@ function blackHoleController:new(
       event.push("log_debug", "Too much: "..numWithCommas((spaceTimeCount * requests) - a).." / "..numWithCommas(a).." / "..numWithCommas(spaceTimeCount * requests));
     end
 
-    -- Input slot 1 = spacetime fluid (database slot 2 = ae2fc:fluid_drop with Fluid:molten.spacetime)
+    -- Input slot 1 = spacetime fluid (database slot 2 = ae2fc:fluid_drop {Fluid:molten.spacetime})
     self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 2, spaceTimeCount)
 
     return requests
