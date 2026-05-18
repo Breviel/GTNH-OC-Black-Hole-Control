@@ -43,20 +43,23 @@ end
 
 local componentDiscover = {}
 
----Discover component proxy by address part
+---Discover component proxy by address part.
+---The type parameter is used only for the error message; address lookup is type-agnostic
+---so that components registered under unexpected type names (e.g. ME Dual Interface) are
+---still found correctly.
 ---@generic T
 ---@param address string
 ---@param name string
 ---@param type `T`
 ---@return T
 function componentDiscover.discoverProxy(address, name, type)
-  local fullAddress = component.get(address, type)
+  local fullAddress = component.get(address)
 
   if fullAddress == nil then
-    error("Invalid address of "..type.." "..name)
+    error("Invalid address of "..tostring(type).." "..name)
   end
 
-  return component.proxy(fullAddress, type)
+  return component.proxy(fullAddress)
 end
 
 ---Discover gt_machine by name
