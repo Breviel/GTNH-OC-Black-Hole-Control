@@ -360,7 +360,6 @@ function blackHoleController:new(
     end
 
     self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
-    self.meInterfaceProxy.setInterfacePatternInput(1, 1, self.database.address, 1, 1)
   end
 
   ---Check if crafting inputs has items for craft
