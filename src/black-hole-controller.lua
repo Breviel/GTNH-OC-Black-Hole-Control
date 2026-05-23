@@ -529,7 +529,11 @@ function blackHoleController:new(
   ---Remove Excess Spacetime from black hole
   ---@private
   function obj:removeExcessSpacetime()
-    self.ioPortTransposer.transferItem(self.meDriveSide, self.meIoPortSide, 1)
+    local transferred = self.ioPortTransposer.transferItem(self.meDriveSide, self.meIoPortSide, 1)
+
+    if transferred == 0 then
+      return
+    end
 
     while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 7) ~= 1 do
       os.sleep(0.1)
