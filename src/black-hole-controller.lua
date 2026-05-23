@@ -352,11 +352,11 @@ function blackHoleController:new(
     end
 
     for key, _ in pairs(pattern.outputs) do
-      self.meInterfaceProxy.clearInterfacePatternOutput(1, key)
+      self.meInterfaceProxy.clearInterfacePatternOutput(1, tonumber(key))
     end
 
     for key, _ in pairs(pattern.inputs) do
-      self.meInterfaceProxy.clearInterfacePatternInput(1, key)
+      self.meInterfaceProxy.clearInterfacePatternInput(1, tonumber(key))
     end
 
     self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
