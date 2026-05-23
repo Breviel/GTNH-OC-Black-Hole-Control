@@ -49,17 +49,23 @@ To install program, you need a computer with:
 ![Computer setup](/docs/computer.png)
 
 Install the basic Open OS on your computer.
-Then run the command to start the installer.
+Then run the command to install directly from this fork:
+
+```shell
+wget -f https://raw.githubusercontent.com/Breviel/GTNH-OC-Black-Hole-Control/main/install.lua && install
+```
+
+Or use the original installer (does not include fork-specific fixes):
 
 ```shell
 pastebin run ESUAMAGx
-``` 
+```
 
 Or
 
 ```shell
 wget -f https://raw.githubusercontent.com/Navatusein/GTNH-OC-Installer/main/installer.lua && installer
-``` 
+```
 
 Then select the Black Hole Control program in the installer.
 If you wish you can add the program to auto download, for manual start write a command.
