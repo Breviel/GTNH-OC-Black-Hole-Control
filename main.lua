@@ -10,7 +10,7 @@ local config = require("config")
 
 local version = require("version")
 
-local repository = "Navatusein/GTNH-OC-Black-Hole-Control"
+local repository = "Breviel/GTNH-OC-Black-Hole-Control"
 local archiveName = "BlackHoleControl"
 
 local program = programLib:new(config.logger, config.enableAutoUpdate, version, repository, archiveName)
