@@ -455,7 +455,7 @@ function blackHoleController:new(
   ---@return integer
   ---@private
   function obj:calculateSpaceTimeCount(cycles, startCycle)
-    startCycle = startCycle ~= 0 and startCycle or 1
+    startCycle = (startCycle ~= nil and startCycle ~= 0) and startCycle or 1
 
     local count = 0
 
@@ -535,7 +535,12 @@ function blackHoleController:new(
       return
     end
 
+    local timeout = computer.uptime() + 10
     while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 7) ~= 1 do
+      if computer.uptime() > timeout then
+        event.push("log_warning", "removeExcessSpacetime timed out waiting for slot 7")
+        return
+      end
       os.sleep(0.1)
     end
 
