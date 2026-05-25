@@ -201,7 +201,11 @@ function blackHoleController:new(
     self.stateMachine.states.waitSpaceTime.update = function ()
       if self.controllerProxy.getWorkMaxProgress() == 0 and self:hasItems() == false then
           self.stateMachine:setState(self.stateMachine.states.collapseBlackHole)
-      elseif self.stateMachine.data.currentCycleTimer >= self.maxCycleTimer then
+      -- Exit immediately once the final cycle has been requested (currentCycle == maxCyclesCount),
+      -- OR after the per-cycle timer expires for intermediate cycles.
+      -- Without the final-cycle short-circuit the state would idle for up to 25 extra seconds,
+      -- draining 25% stability before collapsing / entering saveRecipe.
+      elseif self.stateMachine.data.currentCycleTimer >= self.maxCycleTimer or self.stateMachine.data.currentCycle == self.maxCyclesCount then
         if self.stateMachine.data.currentCycle < self.maxCyclesCount then
           self.stateMachine:setState(self.stateMachine.states.addSpaceTime)
         elseif self.saveRecipeMode == true and self:getCraftTimeRemained() > self:getStabilityTimeRemained() then
