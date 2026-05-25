@@ -196,6 +196,13 @@ function blackHoleController:new(
         self.stateMachine:setState(self.stateMachine.states.error)
       end
     end
+    -- Cancel the current fake recipe craft before the next cycle requests a new one,
+    -- so each 30s cycle gets a fresh request with the correct doubled spacetime amount.
+    self.stateMachine.states.addSpaceTime.exit = function()
+      while self:tryCancelFakeRecipe() == false do
+        os.sleep(0.1)
+      end
+    end
 
     self.stateMachine.states.waitSpaceTime = self.stateMachine:createState("Wait Space Time")
     self.stateMachine.states.waitSpaceTime.update = function ()
@@ -241,6 +248,12 @@ function blackHoleController:new(
       else
         self.stateMachine.data.errorMessage = "Cant request craft: "..self.fakeRecipeName
         self.stateMachine:setState(self.stateMachine.states.error)
+      end
+    end
+    -- Cancel the save-recipe craft before collapsing, matching addSpaceTime.exit behaviour.
+    self.stateMachine.states.saveRecipe.exit = function()
+      while self:tryCancelFakeRecipe() == false do
+        os.sleep(0.1)
       end
     end
 
