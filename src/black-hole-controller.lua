@@ -318,10 +318,12 @@ function blackHoleController:new(
       "Black hole seed transposer",
       "transposer")
 
+    -- The ME Dual Interface registers as "fluid_interface" in OpenComputers,
+    -- not "me_interface". Using the correct component type here.
     self.meInterfaceProxy = componentDiscoverLib.discoverProxy(
       meInterfaceAddress,
       "ME interface",
-      "me_interface")
+      "fluid_interface")
 
     self.ioPortTransposer = componentDiscoverLib.discoverProxy(
       ioPortTransposerAddress,
