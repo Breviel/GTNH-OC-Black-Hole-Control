@@ -594,7 +594,10 @@ function blackHoleController:new(
     return true
   end
 
-  ---Remove Excess Spacetime from black hole
+  ---Remove Excess Spacetime from black hole.
+  ---Transfers the storage drive from the ME Drive side into the IO Port,
+  ---waits for it to appear in slot 1 of the IO Port output side (as seen
+  ---from the transposer), then transfers it back.
   ---@private
   function obj:removeExcessSpacetime()
     local transferred = self.ioPortTransposer.transferItem(self.meDriveSide, self.meIoPortSide, 1)
@@ -604,9 +607,9 @@ function blackHoleController:new(
     end
 
     local timeout = computer.uptime() + 10
-    while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 9) ~= 1 do
+    while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 1) ~= 1 do
       if computer.uptime() > timeout then
-        event.push("log_warning", "removeExcessSpacetime timed out waiting for slot 7")
+        event.push("log_warning", "removeExcessSpacetime timed out waiting for item in IO port slot 1")
         return
       end
       os.sleep(0.1)
