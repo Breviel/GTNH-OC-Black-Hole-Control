@@ -386,7 +386,10 @@ function blackHoleController:new(
     end
   end
 
-  ---Clear inputs and outputs of the fake pattern
+  ---Clear inputs and outputs of the fake pattern.
+  ---Iterates over all 9 slots using hardcoded integer literals to avoid the
+  ---OC serialisation layer returning string keys from getInterfacePattern,
+  ---which would cause "bad argument #2 (integer expected, got string)".
   ---@private
   function obj:clearPattern()
     local pattern = self.meInterfaceProxy.getInterfacePattern(1)
@@ -397,19 +400,25 @@ function blackHoleController:new(
 
     self:assertFluidEncodedPattern(pattern)
 
-    for key, _ in pairs(pattern.outputs) do
-      local slot = math.floor(tonumber(key) or 0)
-      if slot > 0 then
-        self.meInterfaceProxy.clearInterfacePatternOutput(1, slot)
-      end
-    end
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 1)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 2)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 3)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 4)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 5)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 6)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 7)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 8)
+    self.meInterfaceProxy.clearInterfacePatternOutput(1, 9)
 
-    for key, _ in pairs(pattern.inputs) do
-      local slot = math.floor(tonumber(key) or 0)
-      if slot > 0 then
-        self.meInterfaceProxy.clearInterfacePatternInput(1, slot)
-      end
-    end
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 1)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 2)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 3)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 4)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 5)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 6)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 7)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 8)
+    self.meInterfaceProxy.clearInterfacePatternInput(1, 9)
 
     self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
   end
