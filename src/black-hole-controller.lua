@@ -34,6 +34,21 @@ local function numWithCommas(number)
   return tostring(math.floor(number)):reverse():gsub("(%d%d%d)","%1,"):gsub(",(%-?)$","%1"):reverse()
 end
 
+---Returns true if any of the 9 slots on the given side of a transposer contains an item.
+---Used by removeExcessSpacetime to avoid hardcoding slot 1, since the IO Port
+---can place the ejected drive in any slot of its output face.
+---@param transposer transposer
+---@param side integer
+---@return boolean
+local function ioPortHasAnyItem(transposer, side)
+  for slot = 1, 9 do
+    if transposer.getSlotStackSize(side, slot) > 0 then
+      return true
+    end
+  end
+  return false
+end
+
 ---Crate new BlackHoleController object from config
 ---@param config BlackHoleControllerConfig
 ---@return BlackHoleController
@@ -596,8 +611,10 @@ function blackHoleController:new(
 
   ---Remove Excess Spacetime from black hole.
   ---Transfers the storage drive from the ME Drive side into the IO Port,
-  ---waits for it to appear in slot 1 of the IO Port output side (as seen
+  ---waits for it to appear in any slot of the IO Port output side (as seen
   ---from the transposer), then transfers it back.
+  ---The IO Port can eject the cell into any slot of the output face, so we
+  ---scan all 9 slots rather than assuming slot 1.
   ---@private
   function obj:removeExcessSpacetime()
     local transferred = self.ioPortTransposer.transferItem(self.meDriveSide, self.meIoPortSide, 1)
@@ -607,9 +624,9 @@ function blackHoleController:new(
     end
 
     local timeout = computer.uptime() + 10
-    while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 1) ~= 1 do
+    while not ioPortHasAnyItem(self.ioPortTransposer, self.meIoPortSide) do
       if computer.uptime() > timeout then
-        event.push("log_warning", "removeExcessSpacetime timed out waiting for item in IO port slot 1")
+        event.push("log_warning", "removeExcessSpacetime timed out waiting for item in IO port")
         return
       end
       os.sleep(0.1)
