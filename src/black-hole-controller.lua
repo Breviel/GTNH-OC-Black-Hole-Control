@@ -398,11 +398,17 @@ function blackHoleController:new(
     self:assertFluidEncodedPattern(pattern)
 
     for key, _ in pairs(pattern.outputs) do
-      self.meInterfaceProxy.clearInterfacePatternOutput(1, tonumber(key))
+      local slot = math.floor(tonumber(key) or 0)
+      if slot > 0 then
+        self.meInterfaceProxy.clearInterfacePatternOutput(1, slot)
+      end
     end
 
     for key, _ in pairs(pattern.inputs) do
-      self.meInterfaceProxy.clearInterfacePatternInput(1, tonumber(key))
+      local slot = math.floor(tonumber(key) or 0)
+      if slot > 0 then
+        self.meInterfaceProxy.clearInterfacePatternInput(1, slot)
+      end
     end
 
     self.meInterfaceProxy.setInterfacePatternOutput(1, 1, self.database.address, 1, 1)
