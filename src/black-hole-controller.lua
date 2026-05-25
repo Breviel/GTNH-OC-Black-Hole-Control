@@ -15,6 +15,16 @@ local componentDiscoverLib = require("lib.component-discover-lib")
 ---@field saveRecipeMode boolean
 ---@field maxCyclesCount integer
 
+-- Internal item name of the AE2FC Fluid Encoded Pattern (the pink one).
+-- Only this pattern type is accepted by AE2FluidCraft-Rework's OC driver
+-- (DriverOCPatternEditor.validPattern) for setInterfacePatternInput/Output.
+--
+-- In particular, the GTNH AE2 fork "Encoded Ultimate Pattern"
+-- (appliedenergistics2:item.ItemEncodedUltimatePattern), which is now the
+-- default output of the Pattern Terminal in recent GTNH dailies, is NOT
+-- accepted and will cause "Not Fluid Encoded pattern!" to be thrown.
+local FLUID_ENCODED_PATTERN_NAME = "ae2fc:fluid_encoded_pattern"
+
 local blackHoleController = {}
 
 ---Convert number to string with commas
@@ -342,6 +352,55 @@ function blackHoleController:new(
     self.database.set(2, "ae2fc:fluid_drop", 0, "{Fluid:molten.spacetime}")
   end
 
+  ---Validate that the pattern in slot 1 of the ME Interface is a Fluid
+  ---Encoded Pattern (pink). Recent GTNH daily releases default the Pattern
+  ---Terminal to encode "Encoded Ultimate Pattern"
+  ---(appliedenergistics2:item.ItemEncodedUltimatePattern) which is rejected
+  ---by AE2FluidCraft-Rework's OC driver and breaks every subsequent
+  ---setInterfacePatternInput / setInterfacePatternOutput call with the
+  ---cryptic message "Not Fluid Encoded pattern!".
+  ---
+  ---This helper detects the situation early and surfaces an actionable error.
+  ---@param pattern table
+  ---@private
+  function obj:assertFluidEncodedPattern(pattern)
+    -- ItemStacks coming back from OC always carry the registry name in the
+    -- `name` field. Be permissive: only block when we are CERTAIN it is the
+    -- wrong type, so a future rename in AE2FC does not lock everyone out.
+    local name = pattern.name
+
+    if name == nil then
+      return
+    end
+
+    -- The pink AE2FC pattern. This is what we require.
+    if name == FLUID_ENCODED_PATTERN_NAME then
+      return
+    end
+
+    -- The new GTNH-fork Encoded Ultimate Pattern. Hard reject with a clear
+    -- explanation so the user knows exactly what to do.
+    if name:find("ItemEncodedUltimatePattern", 1, true) ~= nil
+       or name:find("EncodedUltimatePattern", 1, true) ~= nil then
+      error(
+        "The pattern in the ME Interface is an 'Encoded Ultimate Pattern'. " ..
+        "Recent GTNH dailies make this the default output of the Pattern Terminal, " ..
+        "but this program requires a pink 'Fluid Encoded Pattern' from the AE2FC " ..
+        "Fluid Pattern Encoder / Fluid Pattern Terminal. " ..
+        "Please replace the pattern in the interface and restart the program."
+      )
+    end
+
+    -- The regular (non-fluid) AE2 Encoded Pattern would also fail downstream.
+    if name:find("ItemEncodedPattern", 1, true) ~= nil then
+      error(
+        "The pattern in the ME Interface is a regular 'Encoded Pattern' " ..
+        "(not the pink Fluid Encoded one). This program needs a Fluid Encoded Pattern " ..
+        "(ae2fc:fluid_encoded_pattern). Please replace it and restart the program."
+      )
+    end
+  end
+
   ---Clear inputs and outputs of the fake pattern
   ---@private
   function obj:clearPattern()
@@ -350,6 +409,8 @@ function blackHoleController:new(
     if pattern == nil then
       error("No pattern in Interface")
     end
+
+    self:assertFluidEncodedPattern(pattern)
 
     for key, _ in pairs(pattern.outputs) do
       self.meInterfaceProxy.clearInterfacePatternOutput(1, tonumber(key))
@@ -493,7 +554,14 @@ function blackHoleController:new(
   ---@param requestCount integer
   ---@private
   function obj:requestFakeRecipe(requestCount)
-    local recipe = obj.meInterfaceProxy.getCraftables({label = self.fakeRecipeName})[1]
+    local craftables = obj.meInterfaceProxy.getCraftables({label = self.fakeRecipeName})
+    local recipe = craftables and craftables[1]
+
+    if recipe == nil then
+      event.push("log_warning", "requestFakeRecipe: '"..self.fakeRecipeName.."' not found in craftables (pattern may be invalid)")
+      return false
+    end
+
     local craft = recipe.request(requestCount)
 
     while craft.isComputing() == true do
