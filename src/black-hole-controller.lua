@@ -589,7 +589,7 @@ function blackHoleController:new(
     end
 
     local timeout = computer.uptime() + 10
-    while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 7) ~= 1 do
+    while self.ioPortTransposer.getSlotStackSize(self.meIoPortSide, 9) ~= 1 do
       if computer.uptime() > timeout then
         event.push("log_warning", "removeExcessSpacetime timed out waiting for slot 7")
         return
