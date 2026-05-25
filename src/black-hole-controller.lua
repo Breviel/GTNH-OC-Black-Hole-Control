@@ -181,11 +181,6 @@ function blackHoleController:new(
         self.stateMachine:setState(self.stateMachine.states.error)
       end
     end
-    self.stateMachine.states.addSpaceTime.exit = function()
-      while self:tryCancelFakeRecipe() == false do
-        os.sleep(0.1)
-      end
-    end
 
     self.stateMachine.states.waitSpaceTime = self.stateMachine:createState("Wait Space Time")
     self.stateMachine.states.waitSpaceTime.update = function ()
@@ -227,11 +222,6 @@ function blackHoleController:new(
       else
         self.stateMachine.data.errorMessage = "Cant request craft: "..self.fakeRecipeName
         self.stateMachine:setState(self.stateMachine.states.error)
-      end
-    end
-    self.stateMachine.states.saveRecipe.exit = function()
-      while self:tryCancelFakeRecipe() == false do
-        os.sleep(0.1)
       end
     end
 
@@ -366,22 +356,16 @@ function blackHoleController:new(
   ---@param pattern table
   ---@private
   function obj:assertFluidEncodedPattern(pattern)
-    -- ItemStacks coming back from OC always carry the registry name in the
-    -- `name` field. Be permissive: only block when we are CERTAIN it is the
-    -- wrong type, so a future rename in AE2FC does not lock everyone out.
     local name = pattern.name
 
     if name == nil then
       return
     end
 
-    -- The pink AE2FC pattern. This is what we require.
     if name == FLUID_ENCODED_PATTERN_NAME then
       return
     end
 
-    -- The new GTNH-fork Encoded Ultimate Pattern. Hard reject with a clear
-    -- explanation so the user knows exactly what to do.
     if name:find("ItemEncodedUltimatePattern", 1, true) ~= nil
        or name:find("EncodedUltimatePattern", 1, true) ~= nil then
       error(
@@ -393,7 +377,6 @@ function blackHoleController:new(
       )
     end
 
-    -- The regular (non-fluid) AE2 Encoded Pattern would also fail downstream.
     if name:find("ItemEncodedPattern", 1, true) ~= nil then
       error(
         "The pattern in the ME Interface is a regular 'Encoded Pattern' " ..
@@ -617,7 +600,7 @@ function blackHoleController:new(
     self.ioPortTransposer.transferItem(self.meIoPortSide, self.meDriveSide, 1)
   end
 
-  ---Check if craft of the fake pattern is failed
+  ---Check if craft of the fake pattern is active on any CPU
   ---@private
   function obj:hasFakeRecipe()
     local cpus = self.meInterfaceProxy.getCpus()
